@@ -504,6 +504,10 @@ case "$COMMAND" in
     done
     hash_package "$PKG" "$VERIFY" "$OUTPUT"
     ;;
+
+  update-db)
+    update_repo_db
+    ;;
     
   info)
     PKG="$1"; shift
