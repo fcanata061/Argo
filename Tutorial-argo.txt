@@ -139,6 +139,134 @@ Comandos Argo para construir e instalar GCC:
 
 # Listar pacotes órfãos
 ./argo.sh orphan
+--------------------------------
+
+==============================
+Argo 2.0 – Gerenciador de Pacotes Linux
+Tutorial Completo (Atualizado)
+==============================
+
+...
+
+9. EXEMPLO PRÁTICO: BUILD DO GCC
+--------------------------------
+
+1. Criando diretório do pacote
+------------------------------
+No diretório base do Argo, crie a pasta do pacote:
+
+$ mkdir -p $HOME/argo/base/gcc
+
+Estrutura mínima:
+
+$HOME/argo/base/gcc/
+├── build         # Script de compilação do GCC
+├── deps.list     # Dependências do GCC
+├── patch/        # Patches opcionais
+└── hooks/        # Hooks opcionais
+
+---
+
+2. Arquivo deps.list
+--------------------
+Exemplo de dependências para GCC:
+
+$ cat $HOME/argo/base/gcc/deps.list
+mpfr
+gmp
+mpc
+isl
+
+> Cada linha é um pacote necessário para compilar o GCC.
+
+---
+
+3. Script de build (build)
+--------------------------
+Exemplo básico de `build`:
+
+#!/usr/bin/env bash
+# Script de compilação do GCC
+set -e
+
+SRC_DIR="$ARGO_DIR/tmp/gcc"
+BUILD_DIR="$SRC_DIR/build"
+
+mkdir -p "$BUILD_DIR"
+cd "$BUILD_DIR"
+
+log_info "Configurando GCC"
+"$SRC_DIR/configure" \
+  --prefix=/usr/local/gcc \
+  --enable-languages=c,c++ \
+  --disable-multilib
+
+log_info "Compilando GCC"
+make -j$(nproc)
+
+log_info "GCC build concluído"
+
+> Salve este script em $HOME/argo/base/gcc/build e torne executável:
+$ chmod +x $HOME/argo/base/gcc/build
+
+---
+
+4. Hooks opcionais (pré e pós build)
+------------------------------------
+Exemplo: hook pre_build.sh
+
+$ cat $HOME/argo/base/gcc/hooks/pre_build.sh
+#!/usr/bin/env bash
+log_info "Hook pré-build do GCC: verificando dependências adicionais"
+# Aqui você pode adicionar verificações extras
+
+> Lembre-se de tornar executável:
+$ chmod +x pre_build.sh
+
+---
+
+5. Compilando e instalando via Argo
+------------------------------------
+- Build do GCC (sem instalar):
+$ ./argo.sh build gcc
+
+- Instalação do GCC:
+$ ./argo.sh install gcc
+
+> O Argo vai automaticamente:
+- Resolver dependências listadas em deps.list  
+- Baixar ou clonar fontes (você deve configurar a URL do pacote)  
+- Aplicar patches se existirem  
+- Executar hooks pre/post build e install  
+
+---
+
+6. Verificando instalação
+-------------------------
+- Informações do pacote:
+$ ./argo.sh info gcc
+
+- Listar pacotes instalados:
+$ ./argo.sh list
+
+- Verificar pacotes órfãos:
+$ ./argo.sh orphan
+
+- Gerar hash SHA256 dos arquivos:
+$ ./argo.sh hash gcc
+
+---
+
+7. Observações importantes
+--------------------------
+- Para GCC, recomenda-se usar **máquinas com memória suficiente**; a compilação pode demorar bastante.  
+- Certifique-se de que os pacotes dependentes (mpfr, gmp, mpc, isl) estejam configurados em `base/`.  
+- Você pode criar versões específicas usando `build <pacote> --version <versão>` e atualizar via `upgrade`.
+
+---
+
+Fim do tutorial – Build do GCC
+==============================
 
 ====================================================================
 7. Observações Finais
