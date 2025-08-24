@@ -1,279 +1,191 @@
-Tutorial Completo – Argo 2.0
-
-====================================================================
-1. Estrutura de Diretórios do Argo
-====================================================================
-$HOME/argo/
-├── base/                  # Scripts base de cada pacote
-│   └── gcc/
-│       ├── build          # Script de build do GCC
-│       ├── deps.list      # Dependências do GCC
-│       ├── hooks/         # Hooks opcionais (pre/post build/install/remove/clean)
-│       └── patch/         # Patches opcionais
-├── repo/                  # Diretório de downloads/clones dos pacotes
-├── tmp/                   # Diretório de builds temporários
-├── var/
-│   ├── argo.log           # Log principal
-│   ├── manifests/         # Lista de arquivos instalados por pacote
-│   ├── installed.list     # Lista de pacotes instalados
-│   ├── orphan.list        # Pacotes órfãos
-│   └── versions.list      # Versões instaladas
-
-====================================================================
-2. Configuração Inicial
-====================================================================
-1. Salve o script argo.sh no seu home:
-   cd $HOME
-   nano argo.sh    # ou use wget/curl para baixar
-   chmod +x argo.sh
-
-2. Crie a estrutura de diretórios:
-   mkdir -p $HOME/argo/base
-   mkdir -p $HOME/argo/repo
-   mkdir -p $HOME/argo/tmp
-   mkdir -p $HOME/argo/var/manifests
-
-3. Configurações globais dentro do script:
-   USE_SHA256=true       # Habilita SHA256
-   VERBOSE=true          # Habilita logs detalhados
-   APPLY_PATCHES=true    # Habilita aplicação de patches
-
-====================================================================
-3. Comandos Principais do Argo
-====================================================================
-build <pacote> [--version <versão>]       : Compila o pacote sem instalar, resolve dependências.
-install <pacote> [--destdir <dir>]       : Instala o pacote no sistema ou em DESTDIR.
-remove <pacote>                           : Remove o pacote e arquivos listados no manifesto.
-upgrade <pacote> [--version <nova>]      : Atualiza o pacote e recompila dependentes.
-clean [<pacote>]                          : Limpa tmp e DESTDIR.
-info <pacote>                             : Mostra informações detalhadas do pacote.
-list                                      : Lista pacotes instalados.
-orphan                                    : Lista pacotes órfãos.
-hash <pacote> [--verify] [--output <arq>] : Gera ou verifica SHA256 dos arquivos.
-
-Opções gerais:
--h, --help       : Mostra o help completo.
--v, --verbose    : Habilita log detalhado.
---no-sha256      : Desabilita SHA256.
---apply-patches / --no-patches : Habilita ou desabilita patches.
-
-====================================================================
-4. Hooks Suportados
-====================================================================
-Hooks opcionais devem ser colocados em:
-$HOME/argo/base/<pacote>/hooks/
-- pre_build.sh
-- post_build.sh
-- pre_install.sh
-- post_install.sh
-- pre_remove.sh
-- post_remove.sh
-- pre_clean.sh
-- post_clean.sh
-
-====================================================================
-5. Gerenciamento de Dependências
-====================================================================
-- Cada pacote pode ter um arquivo deps.list:
-$HOME/argo/base/<pacote>/deps.list
-- Contém uma lista de pacotes que devem ser instalados antes.
-- Argo resolve automaticamente dependências durante build e upgrade.
-
-====================================================================
-6. Exemplo Completo: Build do GCC
-====================================================================
-Estrutura do pacote GCC:
-
-$HOME/argo/base/gcc/
-├── build          # Script de build
-├── deps.list      # Dependências
-├── hooks/         # (opcional)
-└── patch/         # (opcional)
-
-Conteúdo exemplo de deps.list:
-binutils
-mpfr
-gmp
-mpc
-
-Conteúdo exemplo de build:
-
-#!/usr/bin/env bash
-set -e
-SRC="$PWD/src"
-BUILD="$PWD/build"
-mkdir -p "$BUILD"
-cd "$BUILD"
-../configure --prefix=/usr/local/gcc
-make -j$(nproc)
-# make install é feito pelo argo.sh via install_package
-
-Comandos Argo para construir e instalar GCC:
-
-# Build sem instalar
-./argo.sh build gcc
-
-# Instalar GCC
-./argo.sh install gcc
-
-# Atualizar GCC para nova versão
-./argo.sh upgrade gcc 13.2.0
-
-# Remover GCC
-./argo.sh remove gcc
-
-# Limpar build temporário
-./argo.sh clean gcc
-
-# Gerar hash SHA256
-./argo.sh hash gcc
-
-# Verificar hash SHA256
-./argo.sh hash gcc --verify
-
-# Ver informações do GCC
-./argo.sh info gcc
-
-# Listar pacotes instalados
-./argo.sh list
-
-# Listar pacotes órfãos
-./argo.sh orphan
---------------------------------
-
 ==============================
 Argo 2.0 – Gerenciador de Pacotes Linux
-Tutorial Completo (Atualizado)
+Tutorial Completo
 ==============================
 
-...
-
-9. EXEMPLO PRÁTICO: BUILD DO GCC
---------------------------------
-
-1. Criando diretório do pacote
-------------------------------
-No diretório base do Argo, crie a pasta do pacote:
-
-$ mkdir -p $HOME/argo/base/gcc
-
-Estrutura mínima:
-
-$HOME/argo/base/gcc/
-├── build         # Script de compilação do GCC
-├── deps.list     # Dependências do GCC
-├── patch/        # Patches opcionais
-└── hooks/        # Hooks opcionais
+1. VISÃO GERAL
+-------------
+Argo é um gerenciador de pacotes para Linux escrito em Bash. Ele permite:
+- Compilar, instalar e remover pacotes fonte
+- Gerenciar dependências automaticamente
+- Aplicar patches antes da instalação
+- Listar pacotes, órfãos e verificar integridade via SHA256
+- CLI avançada com busca, atualização e simulação (dry-run)
+- Atualização automática de repositórios remotos
 
 ---
 
-2. Arquivo deps.list
---------------------
-Exemplo de dependências para GCC:
+2. ESTRUTURA DE DIRETÓRIOS
+--------------------------
+$HOME/argo/
+├── argo.sh           # script principal
+├── repo/             # clones e downloads de pacotes
+├── tmp/              # diretório temporário para builds
+├── var/              # dados e logs
+│   ├── argo.log      # log de operações
+│   ├── installed.list# lista de pacotes instalados
+│   ├── orphan.list   # lista de pacotes órfãos
+│   ├── versions.list # versões instaladas
+│   └── manifests/    # manifestos de arquivos instalados
+├── base/             # pacotes fonte com estrutura de build
+│   └── <pacote>/
+│       ├── build     # script de build do pacote
+│       ├── deps.list # lista de dependências
+│       ├── patch/    # patches opcionais
+│       └── hooks/    # hooks opcionais
+└── repos.list        # lista de repositórios remotos
 
-$ cat $HOME/argo/base/gcc/deps.list
+---
+
+3. ARQUIVOS NECESSÁRIOS
+------------------------
+1. argo.sh                     → script principal
+2. base/<pacote>/build         → script de compilação
+3. base/<pacote>/deps.list     → dependências
+4. base/<pacote>/patch/        → patches opcionais
+5. base/<pacote>/hooks/        → hooks opcionais (pre/post build/install/remove/clean)
+6. var/installed.list          → gerado automaticamente
+7. var/orphan.list             → gerado automaticamente
+8. var/versions.list           → gerado automaticamente
+9. var/manifests/<pacote>.list → gerado automaticamente
+10. repos.list                 → lista de repositórios remotos
+
+---
+
+4. REPOS.LIST
+--------------
+**Local:** $HOME/argo/repos.list
+
+**Formato do arquivo:**
+# Nome_do_repositorio URL Tipo
+main https://meurepo.com/argo-packages.git git
+tarballs https://meurepo.com/pacotes.tar.gz tar.gz
+
+- Comentários começam com `#`
+- `Tipo` pode ser:
+  - `git` → repositório Git
+  - `tar.gz` ou `zip` → arquivo compactado contendo pacotes
+- Cada linha representa um repositório que será atualizado pelo Argo.
+
+**Exemplo de uso:**  
+$ ./argo.sh update-db  
+> Atualiza automaticamente o banco local de pacotes (`REPO_DB`) lendo todos os repositórios listados.
+
+---
+
+5. INSTALAÇÃO E CONFIGURAÇÃO
+-----------------------------
+1. Clone ou baixe o Argo:
+$ git clone https://github.com/fcanata061/Argo.git
+
+2. Navegue até o diretório:
+$ cd Argo
+
+3. Torne o script executável:
+$ chmod +x argo.sh
+
+4. Crie a estrutura de diretórios se necessário (a primeira execução já cria):
+$ ./argo.sh list
+
+5. Configure pacotes fonte em `base/<pacote>`:
+- build → script de compilação
+- deps.list → dependências
+- patch/ → patches opcionais
+- hooks/ → hooks opcionais
+
+---
+
+6. COMANDOS DISPONÍVEIS
+-----------------------
+🔹 Comandos básicos:
+- build <pacote> [--version <versão]  
+- install <pacote> [--destdir <dir>]  
+- remove <pacote>  
+- upgrade <pacote> [--version <nova>]  
+- clean [<pacote>]  
+- info <pacote>  
+- list  
+- orphan  
+- hash <pacote> [--verify] [--output <arq>]  
+- -h | --help | help  
+
+🔹 Comandos avançados:
+- search <termo>  
+- check-updates  
+- dry-run <operação> <pacote>  
+- update-db → atualiza repositórios remotos lendo `repos.list`
+
+---
+
+7. FUNCIONAMENTO INTERNO
+-------------------------
+- Cada pacote possui um **manifesto** de arquivos instalados (`var/manifests/<pacote>.list`)  
+- Dependências são resolvidas recursivamente via `resolve_dependencies`  
+- Hooks permitem executar scripts antes e depois de build, install, remove e clean  
+- Patches opcionais podem ser aplicados automaticamente no build  
+- Logs detalhados são armazenados em `var/argo.log`  
+- Atualização automática do repositório atualiza o banco local (`REPO_DB`) para que pacotes possam ser buscados e instalados
+
+---
+
+8. DICAS DE USO
+---------------
+- Sempre usar `build` antes de `install` se o pacote tiver código-fonte  
+- Use `info <pacote>` para verificar versão e dependências antes de atualizar  
+- Utilize `list` e `orphan` para gerenciar pacotes instalados e órfãos  
+- Teste `dry-run` para simular operações arriscadas  
+- Use `update-db` regularmente se você configurar repositórios remotos
+
+---
+
+9. EXEMPLO PRÁTICO: BUILD DO GCC
+--------------------------------
+1. Crie o diretório do pacote:  
+$ mkdir -p $HOME/argo/base/gcc
+
+2. deps.list:
 mpfr
 gmp
 mpc
 isl
 
-> Cada linha é um pacote necessário para compilar o GCC.
-
----
-
-3. Script de build (build)
---------------------------
-Exemplo básico de `build`:
-
+3. build:
 #!/usr/bin/env bash
-# Script de compilação do GCC
 set -e
-
 SRC_DIR="$ARGO_DIR/tmp/gcc"
 BUILD_DIR="$SRC_DIR/build"
-
 mkdir -p "$BUILD_DIR"
 cd "$BUILD_DIR"
-
 log_info "Configurando GCC"
-"$SRC_DIR/configure" \
-  --prefix=/usr/local/gcc \
-  --enable-languages=c,c++ \
-  --disable-multilib
-
+"$SRC_DIR/configure" --prefix=/usr/local/gcc --enable-languages=c,c++ --disable-multilib
 log_info "Compilando GCC"
 make -j$(nproc)
-
 log_info "GCC build concluído"
 
-> Salve este script em $HOME/argo/base/gcc/build e torne executável:
-$ chmod +x $HOME/argo/base/gcc/build
-
----
-
-4. Hooks opcionais (pré e pós build)
-------------------------------------
-Exemplo: hook pre_build.sh
-
+4. Hooks opcionais:
 $ cat $HOME/argo/base/gcc/hooks/pre_build.sh
 #!/usr/bin/env bash
 log_info "Hook pré-build do GCC: verificando dependências adicionais"
-# Aqui você pode adicionar verificações extras
 
-> Lembre-se de tornar executável:
-$ chmod +x pre_build.sh
-
----
-
-5. Compilando e instalando via Argo
-------------------------------------
-- Build do GCC (sem instalar):
+5. Compilando e instalando:
 $ ./argo.sh build gcc
-
-- Instalação do GCC:
 $ ./argo.sh install gcc
 
-> O Argo vai automaticamente:
-- Resolver dependências listadas em deps.list  
-- Baixar ou clonar fontes (você deve configurar a URL do pacote)  
-- Aplicar patches se existirem  
-- Executar hooks pre/post build e install  
-
----
-
-6. Verificando instalação
--------------------------
-- Informações do pacote:
+6. Verificando instalação:
 $ ./argo.sh info gcc
-
-- Listar pacotes instalados:
 $ ./argo.sh list
-
-- Verificar pacotes órfãos:
 $ ./argo.sh orphan
-
-- Gerar hash SHA256 dos arquivos:
 $ ./argo.sh hash gcc
 
 ---
 
-7. Observações importantes
---------------------------
-- Para GCC, recomenda-se usar **máquinas com memória suficiente**; a compilação pode demorar bastante.  
-- Certifique-se de que os pacotes dependentes (mpfr, gmp, mpc, isl) estejam configurados em `base/`.  
-- Você pode criar versões específicas usando `build <pacote> --version <versão>` e atualizar via `upgrade`.
+10. OBSERVAÇÕES IMPORTANTES
+---------------------------
+- GCC é um exemplo de pacote complexo; recomenda-se memória suficiente para compilação  
+- Pacotes dependentes (mpfr, gmp, mpc, isl) devem estar configurados em `base/`  
+- A estrutura do Argo permite fácil expansão para rollback, pacotes binários e detecção de conflitos
 
 ---
 
-Fim do tutorial – Build do GCC
+Fim do Tutorial – Argo 2.0
 ==============================
-
-====================================================================
-7. Observações Finais
-====================================================================
-- Logs detalhados ficam em $HOME/argo/var/argo.log
-- Arquivos instalados são registrados em $HOME/argo/var/manifests/
-- Upgrade recompila dependentes automaticamente
-- Clean remove apenas builds temporários, não afeta pacotes instalados
-- SHA256 pode ser desabilitado via --no-sha256
-- Patches podem ser aplicados automaticamente ao extrair pacotes
