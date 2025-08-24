@@ -362,6 +362,59 @@ list_orphans() {
   fi
 }
 
+update_repo_db() {
+  log_info "Iniciando atualização automática do banco de repositórios"
+  mkdir -p "$REPO_DIR"
+  > "$REPO_DB"  # limpa banco antigo
+
+  if [[ ! -f "$ARGO_DIR/repos.list" ]]; then
+    log_warn "Nenhum repositório configurado em repos.list"
+    return
+  fi
+
+  while read -r repo_name repo_url repo_type; do
+    [[ "$repo_name" =~ ^# ]] && continue  # ignora comentários
+    log_info "Atualizando repositório: $repo_name ($repo_type)"
+
+    case "$repo_type" in
+      git)
+        local tmp="$REPO_DIR/$repo_name"
+        if [[ -d "$tmp/.git" ]]; then
+          log_info "Repositório já existe, fazendo pull"
+          git -C "$tmp" pull &> /dev/null
+        else
+          log_info "Clonando repositório $repo_url"
+          git clone "$repo_url" "$tmp" &> /dev/null
+        fi
+        # Procura pacotes no repositório
+        for pkg_dir in "$tmp"/*; do
+          [[ -d "$pkg_dir" ]] || continue
+          local pkg_name=$(basename "$pkg_dir")
+          local pkg_version="unknown"
+          [[ -f "$pkg_dir/version.txt" ]] && pkg_version=$(cat "$pkg_dir/version.txt")
+          echo "$pkg_name $pkg_version $repo_name" >> "$REPO_DB"
+        done
+        ;;
+      
+      tar.gz|zip)
+        local tmp="$REPO_DIR/$repo_name"
+        mkdir -p "$tmp"
+        log_info "Baixando pacotes compactados de $repo_url"
+        curl -L -s -o "$tmp/archive.$repo_type" "$repo_url"
+        # Pode extrair e registrar pacotes (placeholder)
+        echo "[stub] registrar pacotes de $repo_name" >> "$REPO_DB"
+        ;;
+      
+      *)
+        log_warn "Tipo de repositório desconhecido: $repo_type"
+        ;;
+    esac
+
+  done < "$ARGO_DIR/repos.list"
+
+  log_info "Atualização do banco de repositórios concluída"
+}
+
 advanced_cli() {
   local cmd="$1"; shift
 
