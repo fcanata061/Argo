@@ -1,0 +1,189 @@
+#!/usr/bin/env bash
+# ==========================
+# Argo 2.0 – Gerenciador de Pacotes Linux (Esqueleto Completo)
+# ==========================
+
+# ==========================
+# 🔹 DIRETÓRIOS PRINCIPAIS (já implementado)
+# ==========================
+ARGO_DIR="$HOME/argo"
+REPO_DIR="$ARGO_DIR/repo"
+BUILD_DIR="$ARGO_DIR/tmp"
+VAR_DIR="$ARGO_DIR/var"
+LOG_FILE="$VAR_DIR/argo.log"
+MANIFEST_DIR="$VAR_DIR/manifests"
+mkdir -p "$REPO_DIR" "$BUILD_DIR" "$VAR_DIR" "$MANIFEST_DIR"
+
+# ==========================
+# 🔹 CONFIGURAÇÕES GERAIS (já implementado)
+# ==========================
+USE_SHA256=true
+VERBOSE=true
+APPLY_PATCHES=true
+INSTALLED_LIST="$VAR_DIR/installed.list"
+ORPHAN_LIST="$VAR_DIR/orphan.list"
+VERSIONS_LIST="$VAR_DIR/versions.list"
+
+# ==========================
+# 🔹 LOGS COM CORES (já implementado)
+# ==========================
+RED="\e[31m"
+GREEN="\e[32m"
+YELLOW="\e[33m"
+CYAN="\e[36m"
+RESET="\e[0m"
+
+log_info() { echo -e "${GREEN}[INFO]${RESET} $1"; [[ $VERBOSE == true ]] && echo "[INFO] $1" >> "$LOG_FILE"; }
+log_warn() { echo -e "${YELLOW}[WARN]${RESET} $1"; echo "[WARN] $1" >> "$LOG_FILE"; }
+log_error() { echo -e "${RED}[ERROR]${RESET} $1"; echo "[ERROR] $1" >> "$LOG_FILE"; }
+
+# ==========================
+# 🔹 HELPER PARA VERIFICAR PACOTE INSTALADO (já implementado)
+# ==========================
+is_installed() {
+  local pkg="$1"
+  grep -Fxq "$pkg" "$INSTALLED_LIST" 2>/dev/null
+}
+
+# ==========================
+# 🔹 FUNÇÃO HELP (já implementado)
+# ==========================
+show_help() {
+cat << EOF
+${CYAN}Uso:${RESET} argo.sh <comando> [opções] <pacote>
+...
+EOF
+}
+
+# ==========================
+# 🔹 HOOKS (já implementado)
+# ==========================
+run_hook() {
+  local hook="$1"
+  local pkg="$2"
+  local hook_file="$ARGO_DIR/base/$pkg/hooks/$hook.sh"
+  if [[ -f "$hook_file" ]]; then
+    log_info "Executando hook $hook para $pkg"
+    bash "$hook_file"
+  fi
+}
+
+# ==========================
+# 🔹 DOWNLOAD E GIT SYNC (já implementado)
+# ==========================
+fetch_package() {
+  local pkg="$1"
+  local url="$2"
+  mkdir -p "$REPO_DIR/$pkg"
+  # download ou git clone
+}
+
+# ==========================
+# 🔹 EXTRAÇÃO (já implementado)
+# ==========================
+extract_package() { ... }
+
+# ==========================
+# 🔹 PATCHES (já implementado)
+# ==========================
+apply_patches() { ... }
+
+# ==========================
+# 🔹 DEPENDÊNCIAS BÁSICAS (já implementado)
+# ==========================
+resolve_dependencies() { ... }
+
+# ==========================
+# 🔹 BUILD (já implementado)
+# ==========================
+build_package() { ... }
+
+# ==========================
+# 🔹 INSTALAÇÃO (já implementado)
+# ==========================
+install_package() { ... }
+
+# ==========================
+# 🔹 REMOÇÃO (já implementado)
+# ==========================
+remove_package() { ... }
+
+# ==========================
+# 🔹 CLEAN (já implementado)
+# ==========================
+clean_package() { ... }
+
+# ==========================
+# 🔹 SHA256 (já implementado, incompleto)
+# ==========================
+hash_package() { ... }  # Falta: comparar com hash esperado
+
+# ==========================
+# 🔹 UPGRADE (já implementado parcialmente)
+# ==========================
+upgrade_package() { ... }  # Falta: rollback completo, validação versão
+
+# ==========================
+# 🔹 INFO (já implementado)
+# ==========================
+info_package() { ... }
+
+# ==========================
+# 🔹 LIST / ORPHANS (já implementado parcialmente)
+# ==========================
+list_packages() { ... }      # ✅ já funcional
+list_orphans() { ... }       # ❌ ainda não atualiza órfãos automaticamente
+
+# ==========================
+# 🔹 NOVO: GERENCIAMENTO DE REPOSITÓRIOS
+# ==========================
+update_repo_db() {
+  # TODO: baixar pkg.meta dos repositórios
+  # TODO: gerar índice local de pacotes
+}
+
+# ==========================
+# 🔹 NOVO: TRANSÇÕES / ROLLBACK
+# ==========================
+perform_transaction() {
+  # TODO: instalar em temp, validar, mover para / só se sucesso
+}
+
+# ==========================
+# 🔹 NOVO: CONFLITOS DE ARQUIVOS
+# ==========================
+check_file_conflicts() {
+  # TODO: comparar manifestos antes de copiar
+}
+
+# ==========================
+# 🔹 NOVO: PACOTES BINÁRIOS
+# ==========================
+install_binary_package() {
+  # TODO: suportar tar.gz, tar.xz, .deb, .rpm
+}
+
+# ==========================
+# 🔹 NOVO: CLI AVANÇADA
+# ==========================
+# search, update-db, check-updates, dry-run
+advanced_cli() {
+  # TODO: implementar
+}
+
+# ==========================
+# 🔹 PARSE CLI (já implementado parcialmente)
+# ==========================
+COMMAND="$1"; shift
+case "$COMMAND" in
+  build) build_package "$1" ;;
+  install) install_package "$1" ;;
+  remove) remove_package "$1" ;;
+  upgrade) upgrade_package "$1" "$2" ;;
+  list) list_packages ;;
+  orphan) list_orphans ;;
+  hash) hash_package "$1" ;;
+  info) info_package "$1" ;;
+  -h|--help|help) show_help ;;
+  *) log_error "Comando inválido"; show_help ;;
+esac
