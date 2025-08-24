@@ -155,14 +155,21 @@ apply_patches() {
 resolve_dependencies() {
   local pkg="$1"
   local deps_file="$ARGO_DIR/base/$pkg/deps.list"
+
   if [[ -f "$deps_file" ]]; then
+    log_info "Verificando dependências de $pkg"
     while read -r dep; do
+      dep="${dep%%#*}"  # remover comentários
       if ! is_installed "$dep"; then
-        log_info "Compilando dependência $dep"
+        log_info "Dependência $dep não instalada, iniciando build"
         build_package "$dep"
         install_package "$dep"
+      else
+        log_info "Dependência $dep já instalada"
       fi
     done < "$deps_file"
+  else
+    log_info "Nenhum arquivo de dependências encontrado para $pkg"
   fi
 }
 
@@ -295,18 +302,28 @@ upgrade_package() {
 info_package() {
   local pkg="$1"
   echo -e "${CYAN}Pacote:${RESET} $pkg"
+
+  # Versão instalada
   if [[ -f "$VERSIONS_LIST" ]]; then
     grep "^$pkg" "$VERSIONS_LIST" | while read -r line; do
       echo -e "${CYAN}Versão:${RESET} $(echo $line | awk '{print $2}')"
     done
   fi
+
+  # Dependências
   local deps_file="$ARGO_DIR/base/$pkg/deps.list"
   if [[ -f "$deps_file" ]]; then
-    echo -e "${CYAN}Dependências:${RESET} $(cat $deps_file | xargs)"
+    echo -e "${CYAN}Dependências:${RESET} $(grep -v '^#' "$deps_file" | xargs)"
+  else
+    echo -e "${CYAN}Dependências:${RESET} Nenhuma"
   fi
+
+  # Arquivos instalados
   local manifest="$MANIFEST_DIR/$pkg.list"
   if [[ -f "$manifest" ]]; then
-    echo -e "${CYAN}Arquivos instalados:${RESET} $(wc -l < $manifest)"
+    echo -e "${CYAN}Arquivos instalados:${RESET} $(wc -l < "$manifest")"
+  else
+    echo -e "${CYAN}Arquivos instalados:${RESET} Nenhum manifesto encontrado"
   fi
 }
 
@@ -315,15 +332,72 @@ info_package() {
 # ==========================
 list_packages() {
   echo -e "${CYAN}Pacotes instalados:${RESET}"
-  cat "$INSTALLED_LIST" 2>/dev/null
+  if [[ -f "$INSTALLED_LIST" ]]; then
+    cat "$INSTALLED_LIST"
+  else
+    echo "Nenhum pacote instalado"
+  fi
 }
 
-# ==========================
-# Listar pacotes órfãos
-# ==========================
 list_orphans() {
   echo -e "${CYAN}Pacotes órfãos:${RESET}"
-  cat "$ORPHAN_LIST" 2>/dev/null
+  if [[ -f "$INSTALLED_LIST" ]]; then
+    # recalcula órfãos: instalados que não são dependência de ninguém
+    > "$ORPHAN_LIST"
+    while read -r pkg; do
+      local is_dep=false
+      for check_pkg in $(cat "$INSTALLED_LIST"); do
+        local deps_file="$ARGO_DIR/base/$check_pkg/deps.list"
+        if [[ -f "$deps_file" ]] && grep -qx "$pkg" "$deps_file"; then
+          is_dep=true
+          break
+        fi
+      done
+      $is_dep || echo "$pkg" >> "$ORPHAN_LIST"
+    done < "$INSTALLED_LIST"
+
+    cat "$ORPHAN_LIST"
+  else
+    echo "Nenhum pacote instalado"
+  fi
+}
+
+advanced_cli() {
+  local cmd="$1"; shift
+
+  case "$cmd" in
+    search)
+      local pattern="$1"
+      log_info "Procurando pacotes contendo '$pattern'"
+      grep -i "$pattern" "$REPO_DB" 2>/dev/null || echo "Nenhum pacote encontrado"
+      ;;
+
+    check-updates)
+      log_info "Verificando atualizações disponíveis"
+      while read -r pkg; do
+        local latest=$(grep "^$pkg" "$REPO_DB" | awk '{print $2}')
+        local installed=$(grep "^$pkg" "$VERSIONS_LIST" | awk '{print $2}')
+        if [[ "$latest" != "$installed" && -n "$latest" ]]; then
+          echo "$pkg: $installed -> $latest"
+        fi
+      done < "$INSTALLED_LIST"
+      ;;
+
+    dry-run)
+      local operation="$1"
+      local pkg="$2"
+      log_info "[DRY-RUN] Operação: $operation no pacote $pkg"
+      echo "Simulando execução sem alterar o sistema..."
+      ;;
+
+    update-db)
+      update_repo_db
+      ;;
+
+    *)
+      log_error "Comando avançado inválido: $cmd"
+      ;;
+  esac
 }
 # ==========================
 # CLI Parsing
