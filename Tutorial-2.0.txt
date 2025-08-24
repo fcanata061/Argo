@@ -1,0 +1,211 @@
+==============================
+Argo 2.0 – Gerenciador de Pacotes Linux
+Tutorial Completo Atualizado
+==============================
+
+1. VISÃO GERAL
+-------------
+Argo é um gerenciador de pacotes para Linux escrito em Bash. Ele permite:
+- Compilar, instalar e remover pacotes fonte
+- Resolver dependências automaticamente
+- Aplicar patches antes da instalação
+- Listar pacotes, órfãos e verificar integridade via SHA256
+- CLI avançada com busca, atualização, dry-run e upgrade de dependentes
+- Atualização automática de repositórios remotos
+
+Objetivo: ter um gerenciador simples, confiável e funcional, mantendo o sistema organizado.
+
+---
+
+2. ESTRUTURA DE DIRETÓRIOS
+--------------------------
+$HOME/argo/
+├── argo.sh                   # script principal
+├── repo/                     # clones e downloads de pacotes
+├── tmp/                      # diretório temporário para builds
+├── var/                      # dados e logs
+│   ├── argo.log              # log de operações
+│   ├── installed.list        # lista de pacotes instalados
+│   ├── orphan.list           # lista de pacotes órfãos
+│   ├── versions.list         # versões instaladas
+│   └── manifests/            # manifestos de arquivos instalados
+├── base/                     # pacotes fonte com estrutura de build
+│   └── <pacote>/
+│       ├── build             # script de build do pacote
+│       ├── deps.list         # lista de dependências
+│       ├── patch/            # patches opcionais
+│       └── hooks/            # hooks opcionais (pre/post build/install/remove/clean)
+└── repos.list                # lista de repositórios remotos
+
+---
+
+3. ARQUIVOS NECESSÁRIOS
+------------------------
+1. argo.sh                     → script principal
+2. base/<pacote>/build         → script de compilação
+3. base/<pacote>/deps.list     → dependências
+4. base/<pacote>/patch/        → patches opcionais
+5. base/<pacote>/hooks/        → hooks opcionais
+6. var/installed.list          → gerado automaticamente
+7. var/orphan.list             → gerado automaticamente
+8. var/versions.list           → gerado automaticamente
+9. var/manifests/<pacote>.list → gerado automaticamente
+10. repos.list                 → lista de repositórios remotos
+
+---
+
+4. REPOS.LIST
+--------------
+**Local:** $HOME/argo/repos.list
+
+**Formato do arquivo:**
+# Nome_do_repositorio URL Tipo
+main https://meurepo.com/argo-packages.git git
+tarballs https://meurepo.com/pacotes.tar.gz tar.gz
+
+- Comentários começam com `#`
+- `Tipo` pode ser:
+  - git → repositório Git (clona ou dá pull)
+  - tar.gz ou zip → arquivo compactado contendo pacotes
+- Cada linha representa um repositório que será lido pelo Argo.
+
+Exemplo de uso:
+$ ./argo.sh update-db
+> Atualiza automaticamente o banco local de pacotes (`REPO_DB`) lendo todos os repositórios listados.
+
+---
+
+5. INSTALAÇÃO E CONFIGURAÇÃO
+-----------------------------
+1. Clone ou baixe o Argo:
+$ git clone https://github.com/fcanata061/Argo.git
+
+2. Navegue até o diretório:
+$ cd Argo
+
+3. Torne o script executável:
+$ chmod +x argo.sh
+
+4. Crie a estrutura de diretórios (a primeira execução já cria automaticamente):
+$ ./argo.sh list
+
+5. Configure pacotes fonte em base/<pacote>:
+- build → script de compilação
+- deps.list → dependências
+- patch/ → patches opcionais
+- hooks/ → hooks opcionais
+
+---
+
+6. COMANDOS DISPONÍVEIS
+-----------------------
+🔹 Comandos básicos:
+- build <pacote> [--version <versão>]  
+- install <pacote> [--destdir <dir>]  
+- remove <pacote>  
+- upgrade <pacote> [--version <nova>]  
+- clean [<pacote>]  
+- info <pacote>  
+- list  
+- orphan  
+- hash <pacote> [--verify] [--output <arq>]  
+- update-db → atualiza repositórios remotos
+
+🔹 Comandos avançados sugeridos:
+- search <termo> → busca pacotes no banco local
+- check-updates → verifica atualizações disponíveis
+- dry-run <operação> <pacote> → simula operação sem executar
+
+---
+
+7. FUNCIONAMENTO INTERNO
+-------------------------
+- Cada pacote possui um **manifesto** de arquivos instalados (`var/manifests/<pacote>.list`)  
+- Dependências são resolvidas recursivamente via `resolve_dependencies`  
+- Hooks permitem executar scripts antes e depois de build, install, remove e clean  
+- Patches opcionais podem ser aplicados automaticamente no build  
+- Logs detalhados são armazenados em `var/argo.log`  
+- Atualização automática do repositório atualiza o banco local (`REPO_DB`)  
+
+---
+
+8. EXEMPLO PRÁTICO: BUILD DO GCC
+--------------------------------
+1. Crie o diretório do pacote:  
+$ mkdir -p $HOME/argo/base/gcc
+
+2. deps.list:
+mpfr
+gmp
+mpc
+isl
+
+3. build:
+#!/usr/bin/env bash
+set -e
+SRC_DIR="$ARGO_DIR/tmp/gcc"
+BUILD_DIR="$SRC_DIR/build"
+mkdir -p "$BUILD_DIR"
+cd "$BUILD_DIR"
+log_info "Configurando GCC"
+"$SRC_DIR/configure" --prefix=/usr/local/gcc --enable-languages=c,c++ --disable-multilib
+log_info "Compilando GCC"
+make -j$(nproc)
+log_info "GCC build concluído"
+
+4. Hooks opcionais:
+#!/usr/bin/env bash
+log_info "Hook pré-build do GCC: verificando dependências adicionais"
+
+5. Compilando e instalando:
+$ ./argo.sh build gcc
+$ ./argo.sh install gcc
+
+6. Verificando instalação:
+$ ./argo.sh info gcc
+$ ./argo.sh list
+$ ./argo.sh orphan
+$ ./argo.sh hash gcc
+
+---
+
+9. EVOLUÇÕES APLICADAS
+----------------------
+1️⃣ **Build & Instalação**
+- Dependências automáticas
+- Patches aplicados antes da instalação
+- Hooks pré/post build/install/remove/clean
+- Rollback em caso de falha
+- Dry-run e build paralelo
+
+2️⃣ **Repositório**
+- update-db atualiza repositórios remotos
+- Suporte a Git/tar.gz/zip
+- Banco de pacotes local (`REPO_DB`)
+- Cache de downloads
+
+3️⃣ **Logs e Auditoria**
+- Logs detalhados e coloridos
+- Manifestos de arquivos por pacote
+- Histórico de operações e upgrades
+- Identificação de pacotes órfãos
+
+---
+
+10. DICAS DE USO
+---------------
+- Sempre usar `build` antes de `install` se o pacote tiver código-fonte  
+- Use `info <pacote>` para verificar versão e dependências antes de atualizar  
+- Utilize `list` e `orphan` para gerenciar pacotes instalados e órfãos  
+- Teste `dry-run` para simular operações arriscadas  
+- Use `update-db` regularmente se você configurar repositórios remotos
+
+---
+
+11. CONCLUSÃO
+-------------
+Seguindo este tutorial, você terá um gerenciador de pacotes **completo, confiável e funcional**, capaz de compilar, instalar, remover, atualizar e verificar pacotes, mantendo o sistema organizado e 100% funcional.
+
+==============================
+Fim do Tutorial – Argo 2.0
+==============================
